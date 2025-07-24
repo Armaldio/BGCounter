@@ -1,6 +1,44 @@
-import type { GameScore } from '@/types/bgg';
+import type { GameScore as BaseGameScore } from '@/types/bgg';
 
-export interface GameUtility {
+export type ScoreType = 'number' | 'boolean' | 'select' | 'multiplier';
+
+export type ScoreTypeConfig<T extends ScoreType> = {
+  label: string;
+  description?: string;
+  type: T;
+  defaultValue?: 
+    T extends 'number' ? number :
+    T extends 'boolean' ? boolean :
+    T extends 'select' ? string | number :
+    T extends 'multiplier' ? number :
+    never;
+  options?: T extends 'select' ? Array<{ label: string; value: string | number }> : never;
+  min?: T extends 'number' | 'multiplier' ? number : never;
+  max?: T extends 'number' | 'multiplier' ? number : never;
+  step?: T extends 'number' | 'multiplier' ? number : never;
+};
+
+export type BonusConfig = {
+  label: string;
+  description?: string;
+  calculate: (score: GameScore<any, any>) => number;
+  type?: 'bonus' | 'penalty';
+};
+
+export type ScoreBreakdownItem = {
+  label: string;
+  value: number | string;
+  type?: 'base' | 'bonus' | 'penalty' | 'total';
+  description?: string;
+};
+
+export interface GameScore<TScores extends Record<string, any> = {}, TBonuses extends Record<string, any> = {}> extends BaseGameScore {
+  scores: TScores;
+  bonuses: TBonuses;
+  score: number;
+}
+
+export interface GameUtility<TScores extends Record<string, any> = {}, TBonuses extends Record<string, any> = {}, TScoreTypes extends Record<string, ScoreTypeConfig<ScoreType>> = {}> {
   // Core identification
   gameId: string;
   gameName: string;
@@ -11,38 +49,17 @@ export interface GameUtility {
   winningCondition: 'highest' | 'lowest';
   
   // Core game mechanics
-  calculateFinalScore: (score: GameScore) => number;
-  validateScore?: (score: GameScore) => { valid: boolean; message?: string };
+  calculateFinalScore: (score: GameScore<TScores, TBonuses>) => number;
+  validateScore?: (score: GameScore<TScores, TBonuses>) => { valid: boolean; message?: string };
   
   // Scoring configuration
-  scoreTypes: {
-    [key: string]: {
-      label: string;
-      description?: string;
-      type: 'number' | 'boolean' | 'select' | 'multiplier';
-      defaultValue?: number | boolean | string;
-      options?: Array<{ label: string; value: string | number }>;
-      min?: number;
-      max?: number;
-      step?: number;
-    };
-  };
+  scoreTypes: TScoreTypes;
   
   // Bonus and penalty system
-  bonuses?: Record<string, {
-    label: string;
-    description?: string;
-    calculate: (score: GameScore) => number;
-    type?: 'bonus' | 'penalty';
-  }>;
+  bonuses?: Record<string, BonusConfig>;
   
   // Score presentation
-  getScoreBreakdown: (score: GameScore) => Array<{
-    label: string;
-    value: number | string;
-    type?: 'base' | 'bonus' | 'penalty' | 'total';
-    description?: string;
-  }>;
+  getScoreBreakdown: (score: GameScore<TScores, TBonuses>) => ScoreBreakdownItem[];
   
   // UI configuration
   ui?: {

@@ -37,18 +37,18 @@ export interface APIResponse<T> {
   error: string | null;
 }
 
-export interface GameScore {
+export interface GameScore<TScores extends Record<string, any> = {}, TBonuses extends Record<string, any> = {}> {
   playerId: string;
   playerName: string;
   score: number;
-  scores: Record<string, any>;
-  bonuses: Record<string, any>;
+  scores: TScores;
+  bonuses: TBonuses;
 }
 
-export interface GameSession {
+export interface GameSession<TScores extends Record<string, any> = {}, TBonuses extends Record<string, any> = {}> {
   gameId: string;
   gameName: string;
-  players: GameScore[];
+  players: GameScore<TScores, TBonuses>[];
   startTime: Date;
   endTime?: Date;
 }

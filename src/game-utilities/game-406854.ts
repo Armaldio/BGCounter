@@ -1,14 +1,23 @@
 import type { GameScore } from '@/types/bgg';
-import { GameUtility } from '.';
+import { GameUtility, ScoreBreakdownItem } from '.';
 
-export const odinUtility: GameUtility = {
+type OdinScores = {
+  cardsInHand: number;
+  roundsWon: number;
+};
+
+type OdinBonuses = {
+  roundsWon: number;
+};
+
+export const odinUtility: GameUtility<OdinScores, OdinBonuses> = {
   gameId: '406854',
   gameName: 'Odin (2024)',
   minPlayers: 2,
   maxPlayers: 4,
   winningCondition: 'lowest',
   
-  calculateFinalScore: (score: GameScore): number => {
+  calculateFinalScore: (score: GameScore<OdinScores, OdinBonuses>): number => {
     const cardsInHand = score.scores?.cardsInHand || 0;
     const roundsWon = score.bonuses?.roundsWon || 0;
     return cardsInHand - (roundsWon * 2); // -2 points per round won
@@ -34,11 +43,11 @@ export const odinUtility: GameUtility = {
       label: 'Round Bonus',
       description: '-2 points per round won',
       type: 'bonus',
-      calculate: (score) => -((score.bonuses?.roundsWon || 0) * 2)
+      calculate: (score: GameScore<OdinScores, OdinBonuses>) => -((score.bonuses?.roundsWon || 0) * 2)
     }
   },
   
-  getScoreBreakdown: (score) => {
+  getScoreBreakdown: (score: GameScore<OdinScores, OdinBonuses>): ScoreBreakdownItem[] => {
     const cardsInHand = score.scores?.cardsInHand || 0;
     const roundsWon = score.bonuses?.roundsWon || 0;
     const roundBonus = -roundsWon * 2;
