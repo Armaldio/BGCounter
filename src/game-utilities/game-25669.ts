@@ -46,13 +46,19 @@ export const qwirkleUtility: GameUtility = {
       label: 'Qwirkle Bonus',
       description: '6 points per completed line of 6 tiles',
       type: 'bonus',
-      calculate: (score) => (score.bonuses?.qwirkles || 0) * 6
+      calculate: (score) => {
+        console.log('score', score);
+        return (score.scores?.qwirkles || 0) * 6;
+      }
     },
     allTilesBonus: {
       label: 'All Tiles Bonus',
       description: '6 points for using all tiles on final turn',
       type: 'bonus',
-      calculate: (score) => score.bonuses?.allTiles ? 6 : 0
+      calculate: (score) => {
+        console.log('score', score);
+        return score.scores?.allTiles ? 6 : 0;
+      }
     }
   },
   

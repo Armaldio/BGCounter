@@ -25,8 +25,8 @@ const gameUtility = computed<GameUtility | null>(() => getGameUtility(props.game
 // Determine if a score is the current winning score
 const isWinningScore = (player: PlayerScore) => {
   if (!gameUtility.value) return false;
-  const scores = players.value.map(p => gameUtility.value?.calculateFinalScore(p));
-  const playerScore = gameUtility.value.calculateFinalScore(player);
+  const scores = players.value.map(p => gameUtility.value?.calculateFinalScore?.(p) ?? 0);
+  const playerScore = gameUtility.value.calculateFinalScore?.(player) ?? 0;
   
   if (gameUtility.value.winningCondition === 'highest') {
     return playerScore === Math.max(...scores);
@@ -38,8 +38,8 @@ const isWinningScore = (player: PlayerScore) => {
 // Check if score is tied with another player
 const isTiedScore = (player: PlayerScore) => {
   if (!gameUtility.value) return false;
-  const scores = players.value.map(p => gameUtility.value.calculateFinalScore(p));
-  const playerScore = gameUtility.value.calculateFinalScore(player);
+  const scores = players.value.map(p => gameUtility.value?.calculateFinalScore?.(p) ?? 0);
+  const playerScore = gameUtility.value.calculateFinalScore?.(player) ?? 0;
   
   return scores.filter(score => score === playerScore).length > 1;
 };
@@ -50,9 +50,9 @@ const createNewPlayer = (name: string): PlayerScore => {
   const bonuses: Record<string, any> = {};
   
   // Initialize all score types with default values
-  if (gameUtility.value) {
+  if (gameUtility.value?.scoreTypes) {
     Object.entries(gameUtility.value.scoreTypes).forEach(([key, config]) => {
-      scores[key] = config.defaultValue ?? 0;
+      scores[key] = 'defaultValue' in config ? config.defaultValue : 0;
     });
     
     // Initialize bonus trackers if needed
@@ -69,7 +69,6 @@ const createNewPlayer = (name: string): PlayerScore => {
     score: 0,
     scores,
     bonuses,
-    timestamp: new Date().toISOString()
   };
 };
 
@@ -172,31 +171,44 @@ const updatePlayerTotal = (player: PlayerScore) => {
   });
   
   // Apply bonuses/penalties
+  let bonusTotal = 0;
   if (gameUtility.value.bonuses) {
     Object.entries(gameUtility.value.bonuses).forEach(([key, bonus]) => {
       const bonusValue = bonus.calculate({
         ...player,
+        scores: player.scores,
         bonuses: player.bonuses
-      });
-      total += bonusValue;
+      }) || 0;
+      bonusTotal += bonusValue;
     });
   }
   
-  player.score = total;
+  // Update the player's total score
+  player.score = total + bonusTotal;
+  
+  console.log('Updated score for', player.playerName, {
+    baseScore: total,
+    bonusTotal,
+    finalScore: player.score
+  });
 };
 
 const getFinalScore = (player: GameScore): number => {
-  if (gameUtility.value) {
-    return gameUtility.value.calculateFinalScore(player);
-  }
-  return player.score;
+  if (!gameUtility.value?.calculateFinalScore) return 0;
+  // Create a reactive dependency on player.bonuses to ensure updates
+  const bonusDependency = JSON.stringify(player.bonuses);
+  return gameUtility.value.calculateFinalScore({
+    ...player,
+    bonuses: player.bonuses
+  }) ?? 0;
 };
 
 const getScoreBreakdown = (player: GameScore) => {
-  if (gameUtility.value) {
-    return gameUtility.value.getScoreBreakdown(player);
+  if (gameUtility.value?.getScoreBreakdown) {
+    const breakdown = gameUtility.value.getScoreBreakdown(player);
+    return Array.isArray(breakdown) ? breakdown : [];
   }
-  return [{ label: 'Score', value: player.score }];
+  return [];
 };
 
 const resetScores = () => {
@@ -294,7 +306,7 @@ $: {
             </div>
             <div>
               <h3 class="font-semibold text-gray-900">{{ player.playerName }}</h3>
-              <p class="text-lg font-bold text-bgg-primary">{{ getFinalScore(player) }} points</p>
+              <p class="text-lg font-bold text-bgg-primary">{{ getFinalScore({...player}) }} points</p>
             </div>
           </div>
           <button

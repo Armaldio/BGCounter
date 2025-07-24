@@ -29,14 +29,12 @@ export interface GameUtility {
   };
   
   // Bonus and penalty system
-  bonuses?: {
-    [key: string]: {
-      label: string;
-      description?: string;
-      calculate: (score: GameScore) => number;
-      type?: 'bonus' | 'penalty';
-    };
-  };
+  bonuses?: Record<string, {
+    label: string;
+    description?: string;
+    calculate: (score: GameScore) => number;
+    type?: 'bonus' | 'penalty';
+  }>;
   
   // Score presentation
   getScoreBreakdown: (score: GameScore) => Array<{
