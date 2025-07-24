@@ -1,23 +1,69 @@
-import type { GameUtility, GameScore } from '@/types/bgg';
+import type { GameScore } from '@/types/bgg';
+import { GameUtility } from '.';
 
-// Odin (2024) game utility
 export const odinUtility: GameUtility = {
   gameId: '406854',
   gameName: 'Odin (2024)',
+  minPlayers: 2,
+  maxPlayers: 4,
+  winningCondition: 'lowest',
   
   calculateFinalScore: (score: GameScore): number => {
-    return score.score; // In Odin, the score is simply the sum of cards left in hand
+    const cardsInHand = score.scores?.cardsInHand || 0;
+    const roundsWon = score.bonuses?.roundsWon || 0;
+    return cardsInHand - (roundsWon * 2); // -2 points per round won
   },
   
-  getBonusCalculations: () => ({
-    cardsLeft: (count: number) => count, // Each card left is 1 point
-    emptyHand: () => 0, // No bonus for empty hand, just 0 points
-    roundsWon: (count: number) => -count * 2 // Negative points for rounds won (lower is better)
-  }),
+  scoreTypes: {
+    cardsInHand: {
+      label: 'Cards in Hand',
+      type: 'number',
+      min: 0,
+      step: 1
+    },
+    roundsWon: {
+      label: 'Rounds Won',
+      type: 'number',
+      min: 0,
+      step: 1
+    }
+  },
   
-  getScoreBreakdown: (score: GameScore) => [
-    { label: 'Cards in Hand', value: score.score },
-    { label: 'Rounds Won', value: score.bonuses.roundsWon || 0 },
-    { label: 'Total Score', value: score.score + (score.bonuses.roundsWon || 0) * -2 }
-  ]
+  bonuses: {
+    roundBonus: {
+      label: 'Round Bonus',
+      description: '-2 points per round won',
+      type: 'bonus',
+      calculate: (score) => -((score.bonuses?.roundsWon || 0) * 2)
+    }
+  },
+  
+  getScoreBreakdown: (score) => {
+    const cardsInHand = score.scores?.cardsInHand || 0;
+    const roundsWon = score.bonuses?.roundsWon || 0;
+    const roundBonus = -roundsWon * 2;
+    const total = cardsInHand + roundBonus;
+    
+    return [
+      { label: 'Cards in Hand', value: cardsInHand, type: 'base' },
+      { 
+        label: 'Round Bonus', 
+        value: roundBonus, 
+        type: 'bonus',
+        description: `${roundsWon} rounds won × -2 points`
+      },
+      { 
+        label: 'Total Score', 
+        value: total, 
+        type: 'total',
+        description: 'Lower is better'
+      }
+    ];
+  },
+  
+  ui: {
+    showRoundTracker: true,
+    allowNegativeScores: true,
+    customComponents: ['OdinRoundTracker']
+  }
 };

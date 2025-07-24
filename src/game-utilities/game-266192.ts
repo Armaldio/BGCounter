@@ -1,4 +1,5 @@
-import type { GameUtility, GameScore } from '@/types/bgg';
+import type { GameScore } from '@/types/bgg';
+import { GameUtility } from '.';
 
 // Wingspan game utility
 export const wingspanUtility: GameUtility = {

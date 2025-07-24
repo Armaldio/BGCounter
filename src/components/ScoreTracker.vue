@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
-import type { GameScore } from '@/types/bgg';
+import { ref, computed, onMounted, watch } from 'vue';
+import type { GameScore, GameUtility } from '@/types/bgg';
 import { getGameUtility } from '@/game-utilities';
 
 interface Props {
@@ -10,49 +10,180 @@ interface Props {
 
 const props = defineProps<Props>();
 
-const players = ref<GameScore[]>([]);
+interface PlayerScore extends GameScore {
+  scores: Record<string, any>;
+  bonuses: Record<string, any>;
+}
+
+const players = ref<PlayerScore[]>([]);
 const newPlayerName = ref('');
 const showAddPlayer = ref(false);
+const currentRound = ref(1);
+const gameHistory = ref<Array<{ round: number; scores: Record<string, number> }>>([]);
 
-const gameUtility = computed(() => getGameUtility(props.gameId));
+const gameUtility = computed<GameUtility | null>(() => getGameUtility(props.gameId));
+
+// Determine if a score is the current winning score
+const isWinningScore = (player: PlayerScore) => {
+  if (!gameUtility.value) return false;
+  const scores = players.value.map(p => calculateFinalScore(p));
+  const playerScore = calculateFinalScore(player);
+  
+  if (gameUtility.value.winningCondition === 'highest') {
+    return playerScore === Math.max(...scores);
+  } else {
+    return playerScore === Math.min(...scores);
+  }
+};
+
+// Check if score is tied with another player
+const isTiedScore = (player: PlayerScore) => {
+  if (!gameUtility.value) return false;
+  const scores = players.value.map(p => calculateFinalScore(p));
+  const playerScore = calculateFinalScore(player);
+  
+  return scores.filter(score => score === playerScore).length > 1;
+};
+
+// Initialize a new player with default values
+const createNewPlayer = (name: string): PlayerScore => {
+  const scores: Record<string, any> = {};
+  const bonuses: Record<string, any> = {};
+  
+  // Initialize all score types with default values
+  if (gameUtility.value) {
+    Object.entries(gameUtility.value.scoreTypes).forEach(([key, config]) => {
+      scores[key] = config.defaultValue ?? 0;
+    });
+    
+    // Initialize bonus trackers if needed
+    if (gameUtility.value.bonuses) {
+      Object.keys(gameUtility.value.bonuses).forEach(key => {
+        bonuses[key] = 0;
+      });
+    }
+  }
+  
+  return {
+    playerId: `player-${Date.now()}`,
+    playerName: name.trim(),
+    score: 0,
+    scores,
+    bonuses,
+    timestamp: new Date().toISOString()
+  };
+};
 
 const addPlayer = () => {
   if (!newPlayerName.value.trim()) return;
   
-  const newPlayer: GameScore = {
-    playerId: `player-${Date.now()}`,
-    playerName: newPlayerName.value.trim(),
-    score: 0,
-    bonuses: {}
-  };
-  
+  const newPlayer = createNewPlayer(newPlayerName.value);
   players.value.push(newPlayer);
   newPlayerName.value = '';
   showAddPlayer.value = false;
+  saveGameState();
 };
 
 const removePlayer = (playerId: string) => {
   players.value = players.value.filter(p => p.playerId !== playerId);
+  saveGameState();
 };
 
-const adjustScore = (playerId: string, adjustment: number) => {
+const updateScore = (playerId: string, scoreType: string, value: any) => {
   const player = players.value.find(p => p.playerId === playerId);
   if (player) {
-    player.score += adjustment;
+    // Handle different score types
+    const scoreDef = gameUtility.value?.scoreTypes?.[scoreType];
+    
+    if (scoreDef) {
+      // Convert value based on type
+      let convertedValue: any = value;
+      if (scoreDef.type === 'number') {
+        convertedValue = Number(value);
+        if (scoreDef.min !== undefined) convertedValue = Math.max(convertedValue, scoreDef.min);
+        if (scoreDef.max !== undefined) convertedValue = Math.min(convertedValue, scoreDef.max);
+      } else if (scoreDef.type === 'boolean') {
+        convertedValue = Boolean(value);
+      }
+      
+      player.scores[scoreType] = convertedValue;
+      updatePlayerTotal(player);
+      saveGameState();
+    }
+  }
+};
+
+// Adjust a player's score by a given amount
+const adjustScore = (playerId: string, amount: number) => {
+  const player = players.value.find(p => p.playerId === playerId);
+  if (player) {
+    // If the game has specific score types, use the first one
+    const scoreType = gameUtility.value?.scoreTypes ? Object.keys(gameUtility.value.scoreTypes)[0] : 'points';
+    
+    // Initialize the score if it doesn't exist
+    if (player.scores[scoreType] === undefined) {
+      player.scores[scoreType] = 0;
+    }
+    
+    // Apply the adjustment
+    const newScore = Number(player.scores[scoreType] || 0) + amount;
+    
+    // Ensure the score doesn't go below zero unless the game allows negative scores
+    if (newScore < 0 && !gameUtility.value?.ui?.allowNegativeScores) {
+      player.scores[scoreType] = 0;
+    } else {
+      player.scores[scoreType] = newScore;
+    }
+    
+    // Update the total and save
+    updatePlayerTotal(player);
+    saveGameState();
   }
 };
 
 const adjustBonus = (playerId: string, bonusType: string, adjustment: number) => {
   const player = players.value.find(p => p.playerId === playerId);
   if (player) {
+    // Initialize bonus if it doesn't exist
     if (!player.bonuses[bonusType]) {
       player.bonuses[bonusType] = 0;
     }
-    player.bonuses[bonusType] += adjustment;
+    
+    // Apply adjustment
+    player.bonuses[bonusType] = (player.bonuses[bonusType] || 0) + adjustment;
+    
+    // Ensure bonus doesn't go below 0
     if (player.bonuses[bonusType] < 0) {
       player.bonuses[bonusType] = 0;
     }
+    
+    updatePlayerTotal(player);
+    saveGameState();
   }
+};
+
+const updatePlayerTotal = (player: PlayerScore) => {
+  if (!gameUtility.value) return;
+  
+  // Calculate base score from all score types
+  let total = 0;
+  Object.entries(player.scores).forEach(([key, value]) => {
+    const numValue = Number(value) || 0;
+    total += numValue;
+  });
+  
+  // Apply bonuses/penalties
+  if (gameUtility.value.bonuses) {
+    Object.entries(gameUtility.value.bonuses).forEach(([key, bonus]) => {
+      const bonusValue = bonus.calculate({
+        ...player,
+        bonuses: player.bonuses
+      });
+      total += bonusValue;
+    });
+  }
+  
+  player.score = total;
 };
 
 const getFinalScore = (player: GameScore): number => {
@@ -215,28 +346,40 @@ $: {
         </div>
 
         <!-- Game-specific Bonuses -->
-        <div v-if="gameUtility" class="mb-3">
+        <div v-if="gameUtility?.bonuses" class="mb-3">
           <label class="block text-sm font-medium text-gray-700 mb-2">Bonuses</label>
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div
-              v-for="(calculator, bonusType) in gameUtility.getBonusCalculations()"
-              :key="bonusType"
-              class="flex items-center justify-between bg-white rounded p-2 border"
+              v-for="(bonus, bonusKey) in gameUtility.bonuses"
+              :key="bonusKey"
+              class="flex flex-col bg-white rounded-lg p-3 border border-gray-200 hover:border-blue-200 transition-colors"
+              :title="bonus.description"
             >
-              <span class="text-sm capitalize">{{ bonusType }}: {{ player.bonuses[bonusType] || 0 }}</span>
-              <div class="flex gap-1">
-                <button
-                  @click="adjustBonus(player.playerId, bonusType, 1)"
-                  class="w-6 h-6 bg-green-500 hover:bg-green-600 text-white rounded text-xs"
-                >
-                  +
-                </button>
-                <button
-                  @click="adjustBonus(player.playerId, bonusType, -1)"
-                  class="w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded text-xs"
-                >
-                  -
-                </button>
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-sm font-medium text-gray-800">{{ bonus.label }}</span>
+                <span class="text-sm font-mono px-2 py-0.5 bg-gray-100 rounded">
+                  {{ bonus.calculate(player) }}
+                </span>
+              </div>
+              <div class="flex items-center justify-between mt-1">
+                <span class="text-xs text-gray-500">{{ bonus.description }}</span>
+                <div class="flex gap-1">
+                  <button
+                    @click="adjustBonus(player.playerId, bonusKey, 1)"
+                    class="w-6 h-6 flex items-center justify-center bg-green-500 hover:bg-green-600 text-white rounded text-xs transition-colors"
+                    :title="`Add ${bonus.label}`"
+                  >
+                    <span class="relative -top-px">+</span>
+                  </button>
+                  <button
+                    @click="adjustBonus(player.playerId, bonusKey, -1)"
+                    :disabled="!player.bonuses[bonusKey]"
+                    class="w-6 h-6 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded text-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    :title="`Remove ${bonus.label}`"
+                  >
+                    <span class="relative -top-px">-</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
