@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
-import type { GameScore, GameUtility } from '@/types/bgg';
-import { getGameUtility } from '@/game-utilities';
+import type { GameScore } from '@/types/bgg';
+import { GameUtility, getGameUtility } from '@/game-utilities';
 
 interface Props {
   gameId: string;
-  gameName: string;
 }
 
 const props = defineProps<Props>();
@@ -26,8 +25,8 @@ const gameUtility = computed<GameUtility | null>(() => getGameUtility(props.game
 // Determine if a score is the current winning score
 const isWinningScore = (player: PlayerScore) => {
   if (!gameUtility.value) return false;
-  const scores = players.value.map(p => calculateFinalScore(p));
-  const playerScore = calculateFinalScore(player);
+  const scores = players.value.map(p => gameUtility.value?.calculateFinalScore(p));
+  const playerScore = gameUtility.value.calculateFinalScore(player);
   
   if (gameUtility.value.winningCondition === 'highest') {
     return playerScore === Math.max(...scores);
@@ -39,8 +38,8 @@ const isWinningScore = (player: PlayerScore) => {
 // Check if score is tied with another player
 const isTiedScore = (player: PlayerScore) => {
   if (!gameUtility.value) return false;
-  const scores = players.value.map(p => calculateFinalScore(p));
-  const playerScore = calculateFinalScore(player);
+  const scores = players.value.map(p => gameUtility.value.calculateFinalScore(p));
+  const playerScore = gameUtility.value.calculateFinalScore(player);
   
   return scores.filter(score => score === playerScore).length > 1;
 };

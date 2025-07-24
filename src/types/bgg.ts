@@ -41,7 +41,8 @@ export interface GameScore {
   playerId: string;
   playerName: string;
   score: number;
-  bonuses: Record<string, number>;
+  scores: Record<string, any>;
+  bonuses: Record<string, any>;
 }
 
 export interface GameSession {

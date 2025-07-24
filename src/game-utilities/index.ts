@@ -18,6 +18,7 @@ export interface GameUtility {
   scoreTypes: {
     [key: string]: {
       label: string;
+      description?: string;
       type: 'number' | 'boolean' | 'select' | 'multiplier';
       defaultValue?: number | boolean | string;
       options?: Array<{ label: string; value: string | number }>;
