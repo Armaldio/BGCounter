@@ -4,9 +4,15 @@ import { useRoute, useRouter } from 'vue-router';
 import { bggApi } from '@/services/bgg-api';
 import type { BGGGame } from '@/types/bgg';
 import { hasGameUtility } from '@/game-utilities';
+import { defineAsyncComponent } from 'vue';
 import LoadingSpinner from '@/components/LoadingSpinner.vue';
 import ErrorMessage from '@/components/ErrorMessage.vue';
 import ScoreTracker from '@/components/ScoreTracker.vue';
+
+// Async components for better performance
+const OdinTracker = defineAsyncComponent(
+  () => import('@/components/games/OdinTracker.vue')
+);
 
 const route = useRoute();
 const router = useRouter();
@@ -53,9 +59,8 @@ const complexityText = computed(() => {
   return 'Very Heavy';
 });
 
-const hasScoreTracker = computed(() => {
-  return hasGameUtility(gameId.value);
-});
+const hasScoreTracker = computed(() => hasGameUtility(game.value?.id, 'score-tracker'));
+const hasOdinTracker = computed(() => game.value?.id === '406854');
 
 const loadGame = async () => {
   isLoading.value = true;
@@ -249,9 +254,13 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- Score Tracker -->
-        <div v-if="hasScoreTracker" class="mt-8">
-          <ScoreTracker :game-id="gameId" :game-name="game.name" />
+        <!-- Game Utilities -->
+        <div class="mt-8 space-y-8">          
+          <!-- Score Tracker -->
+          <div v-if="hasScoreTracker">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Score Tracker</h2>
+            <ScoreTracker :game-id="gameId" :game-name="game.name" />
+          </div>
         </div>
       </div>
     </div>

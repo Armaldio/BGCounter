@@ -1,10 +1,19 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+@import 'tailwindcss/theme';
+
+@theme {
+  --font-sans: 'Inter', system-ui, sans-serif;
+  
+  --color-bgg-primary: theme('colors.orange.500');
+  --color-bgg-secondary: theme('colors.blue.800');
+  --color-bgg-accent: theme('colors.amber.400');
+  --color-bgg-dark: theme('colors.gray.900');
+  --color-bgg-light: theme('colors.gray.50');
+}
 
 @layer base {
   html {
-    font-family: Inter, system-ui, sans-serif;
+    font-family: var(--font-sans);
   }
   
   body {
@@ -13,24 +22,28 @@
 }
 
 @layer components {
+  .btn {
+    @apply inline-flex items-center justify-center font-medium rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50;
+  }
+  
   .btn-primary {
-    @apply bg-bgg-primary hover:bg-orange-600 text-white font-medium px-4 py-2 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-bgg-primary focus:ring-offset-2;
+    @apply bg-bgg-primary text-white hover:bg-orange-600 focus-visible:ring-bgg-primary px-4 py-2;
   }
   
   .btn-secondary {
-    @apply bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium px-4 py-2 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2;
+    @apply bg-gray-200 text-gray-800 hover:bg-gray-300 focus-visible:ring-gray-400 px-4 py-2;
   }
   
   .counter-btn {
-    @apply px-3 py-1 rounded-md font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
+    @apply px-3 py-1 rounded-md font-semibold transition-all focus-visible:ring-2 focus-visible:ring-offset-2;
   }
   
-  .counter-btn-positive {
-    @apply bg-green-500 hover:bg-green-600 text-white focus:ring-green-500;
+  .counter-btn.positive {
+    @apply bg-green-500 text-white hover:bg-green-600 focus-visible:ring-green-500;
   }
   
-  .counter-btn-negative {
-    @apply bg-red-500 hover:bg-red-600 text-white focus:ring-red-500;
+  .counter-btn.negative {
+    @apply bg-red-500 text-white hover:bg-red-600 focus-visible:ring-red-500;
   }
   
   .game-card {

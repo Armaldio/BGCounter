@@ -54,6 +54,8 @@ const loadPopularGames = async () => {
   try {
     // Get hot games from BGG
     popularGames.value = await bggApi.getHotGames();
+
+    console.log(popularGames.value);
     
     // // Get detailed information for the hot games
     // if (hotGames.length > 0) {

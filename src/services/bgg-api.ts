@@ -25,7 +25,8 @@ class BGGApiService {
       id: item.getAttribute('id') || '',
       name: item.querySelector('name')?.getAttribute('value') || '',
       yearPublished: parseInt(item.querySelector('yearpublished')?.getAttribute('value') || '0') || undefined,
-      type: item.getAttribute('type') || 'boardgame'
+      type: item.getAttribute('type') || 'boardgame',
+      thumbnail: item.querySelector('thumbnail')?.getAttribute('value') || '',
     }));
   }
 
