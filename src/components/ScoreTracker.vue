@@ -2,12 +2,12 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import type { GameScore } from '@/types/bgg';
 import { GameUtility, getGameUtility } from '@/game-utilities';
+import { useRoute } from 'vue-router';
 
-interface Props {
-  gameId: string;
-}
 
-const props = defineProps<Props>();
+const route = useRoute();
+
+const gameId = computed(() => route.params.id as string);
 
 interface PlayerScore extends GameScore {
   scores: Record<string, any>;
@@ -20,7 +20,7 @@ const showAddPlayer = ref(false);
 const currentRound = ref(1);
 const gameHistory = ref<Array<{ round: number; scores: Record<string, number> }>>([]);
 
-const gameUtility = computed<GameUtility | null>(() => getGameUtility(props.gameId));
+const gameUtility = computed<GameUtility | null>(() => getGameUtility(gameId.value));
 
 // Determine if a score is the current winning score
 const isWinningScore = (player: PlayerScore) => {
@@ -224,7 +224,7 @@ const sortedPlayers = computed(() => {
 
 onMounted(() => {
   // Load saved game state if exists
-  const savedState = localStorage.getItem(`game-${props.gameId}-scores`);
+  const savedState = localStorage.getItem(`game-${gameId.value}-scores`);
   if (savedState) {
     try {
       players.value = JSON.parse(savedState);
@@ -236,7 +236,7 @@ onMounted(() => {
 
 // Auto-save game state
 const saveGameState = () => {
-  localStorage.setItem(`game-${props.gameId}-scores`, JSON.stringify(players.value));
+  localStorage.setItem(`game-${gameId.value}-scores`, JSON.stringify(players.value));
 };
 
 // Save whenever players data changes
@@ -369,7 +369,7 @@ $: {
               <div class="flex items-center justify-between mb-1">
                 <span class="text-sm font-medium text-gray-800">{{ bonus.label }}</span>
                 <span class="text-sm font-mono px-2 py-0.5 bg-gray-100 rounded">
-                  {{ bonus.calculate(player) }}
+                  {{ player.bonuses[bonusKey] }}
                 </span>
               </div>
               <div class="flex items-center justify-between mt-1">

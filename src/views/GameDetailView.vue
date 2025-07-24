@@ -259,7 +259,7 @@ onMounted(() => {
           <!-- Score Tracker -->
           <div v-if="hasScoreTracker">
             <h2 class="text-xl font-semibold text-gray-900 mb-4">Score Tracker</h2>
-            <ScoreTracker :game-id="gameId" :game-name="game.name" />
+            <router-link :to="{ name: 'game-score', params: { id: game.id } }" class="btn-primary">Go to Score Tracker</router-link>
           </div>
         </div>
       </div>

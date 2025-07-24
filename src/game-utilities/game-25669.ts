@@ -49,7 +49,7 @@ export const qwirkleUtility: GameUtility<QwirkleScores, QwirkleBonuses, typeof q
     const qwirkleBonus = score.bonuses?.qwirkleBonus || 0;
     const allTilesBonus = score.bonuses?.allTilesBonus || 0;
     
-    return baseScore + (qwirkleBonus * 12) + allTilesBonus;
+    return baseScore + (qwirkleBonus * 6) + allTilesBonus;
   },
   
   // Score configuration
