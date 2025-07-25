@@ -1,4 +1,4 @@
-import { createGameUtility, ScoreBreakdownItem } from './utils';
+import { createGameUtility, roundRobinTurnAlgorithm, ScoreBreakdownItem } from './utils';
 
 type OdinScores = {
   cardsThatRestInHand: number;
@@ -15,6 +15,11 @@ export default createGameUtility<OdinScores, OdinBonuses>({
   winningCondition: 'lowest',
 
   modules: [
+    {
+      type: 'turn',
+      id: 'odin-turn',  
+      algorithm: roundRobinTurnAlgorithm,
+    },
     {
       type: 'quick-controls',
       id: 'odin-quick-controls',

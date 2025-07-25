@@ -45,23 +45,25 @@ onMounted(() => {
   loadGame();
 });
 
-interface PlayerScore extends GameScore {
-  scores: Record<string, any>;
-  bonuses: Record<string, any>;
-}
-
-const players = ref<PlayerScore[]>([]);
+const players = ref<GameScore[]>([]);
 const newPlayerName = ref("");
 const showAddPlayer = ref(false);
-const currentRound = ref(1);
-const gameHistory = ref<
-  Array<{ round: number; scores: Record<string, number> }>
->([]);
-
+const turnId = ref();
+const currentTurn = computed(() => players.value.find(p => p.playerId === turnId.value));
 const gameUtility = computed(() => getGameUtility(gameId.value));
 
+const selectPlayerAsFirst = (player: GameScore) => {
+  turnId.value = player.playerId;
+};
+
+// go to the next player using utility turn algorithm
+const endTurn = (player: GameScore) => {
+  if (!gameUtility.value) return;
+  turnId.value = gameUtility.value.modules.find(m => m.type === 'turn')?.algorithm(players.value, player.playerId);
+};
+
 // Determine if a score is the current winning score
-const isWinningScore = (player: PlayerScore) => {
+const isWinningScore = (player: GameScore) => {
   if (!gameUtility.value) return false;
   const scores = players.value.map(
     (p) =>
@@ -86,7 +88,7 @@ const isWinningScore = (player: PlayerScore) => {
 };
 
 // Check if score is tied with another player
-const isTiedScore = (player: PlayerScore) => {
+const isTiedScore = (player: GameScore) => {
   if (!gameUtility.value) return false;
   const scores = players.value.map(
     (p) =>
@@ -107,7 +109,7 @@ const isTiedScore = (player: PlayerScore) => {
 };
 
 // Initialize a new player with default values
-const createNewPlayer = (name: string): PlayerScore => {
+const createNewPlayer = (name: string): GameScore => {
   const scores: Record<string, any> = {};
   const bonuses: Record<string, any> = {};
 
@@ -128,7 +130,6 @@ const createNewPlayer = (name: string): PlayerScore => {
   return {
     playerId: `player-${Date.now()}`,
     playerName: name.trim(),
-    score: 0,
     scores,
     bonuses,
   };
@@ -149,7 +150,7 @@ const removePlayer = (playerId: string) => {
   saveGameState();
 };
 
-const updateScore = (playerId: string, scoreType: string, value: any) => {
+const updateScore = (playerId: string, scoreType: keyof GameScore['scores'], value: any) => {
   const player = players.value.find((p) => p.playerId === playerId);
   if (player) {
     // Handle different score types
@@ -207,7 +208,7 @@ const adjustScore = (playerId: string, amount: number) => {
 
 const adjustBonus = (
   playerId: string,
-  bonusType: string,
+  bonusType: keyof GameScore['bonuses'],
   adjustment: number
 ) => {
   const player = players.value.find((p) => p.playerId === playerId);
@@ -230,7 +231,7 @@ const adjustBonus = (
   }
 };
 
-const updatePlayerTotal = (player: PlayerScore) => {
+const updatePlayerTotal = (player: GameScore) => {
   if (!gameUtility.value) return;
 
   // Calculate base score from all score types
@@ -291,7 +292,7 @@ const getScoreBreakdown = (player: GameScore) => {
 
 const resetScores = () => {
   players.value.forEach((player) => {
-    player.score = 0;
+    player.scores = {};
     player.bonuses = {};
   });
 };
@@ -486,6 +487,43 @@ $: {
                   </div>
                 </div>
               </div>
+              <!-- Turn -->
+              <div v-if="module.type === 'turn'">
+                <div class="mb-3">
+                  <label class="block text-sm font-medium text-gray-700 mb-2"
+                    >Current Turn</label
+                  >
+                  <div v-if="currentTurn" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div
+                      :class="[
+                        'flex flex-col bg-white rounded-lg p-3 border border-gray-200 hover:border-blue-200 transition-colors',
+                        player.playerId === currentTurn?.playerId ? 'bg-blue-50' : '',
+                      ]"
+                    >
+                      <div class="flex items-center justify-between mb-1">
+                        <span class="text-sm font-medium text-gray-800">{{
+                          currentTurn?.playerName
+                        }}</span>
+                      </div>
+                    </div>
+                    <button
+                      v-if="player.playerId === currentTurn?.playerId"
+                      @click="endTurn(player)"
+                      class="text-sm font-medium text-blue-500 hover:text-blue-700 p-1"
+                    >
+                      End Turn
+                    </button>
+                  </div>
+                  <div v-else class="mt-2">
+                    <button
+                      @click="selectPlayerAsFirst(player)"
+                      class="text-sm font-medium text-blue-500 hover:text-blue-700 p-1"
+                    >
+                      Select as first player
+                    </button>
+                  </div>
+                </div>
+              </div>
               <div v-if="module.type === 'bonuses'">
                 <div v-if="gameUtility?.bonuses" class="mb-3">
                   <label class="block text-sm font-medium text-gray-700 mb-2"
@@ -534,6 +572,7 @@ $: {
                   </div>
                 </div>
               </div>
+              
             </div>
 
             <!-- Score Breakdown -->

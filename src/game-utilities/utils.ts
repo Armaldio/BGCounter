@@ -86,10 +86,16 @@ type ModuleBonuses = BaseModule & {
   bonuses: BonusConfig[];
 }
 
+type ModuleTurn = BaseModule & {
+  type: 'turn';
+  algorithm?: (players: GameScore<any, any>[], currentTurn: string) => string;
+}
+
 type Module = 
   | ModuleQuickControls
   | ModuleDices
   | ModuleBonuses
+  | ModuleTurn
 
 export interface GameUtility<TScores extends Record<string, any>, TBonuses extends Record<string, BonusConfig>> {
   // Core identification
@@ -127,3 +133,9 @@ export interface GameUtility<TScores extends Record<string, any>, TBonuses exten
 export const createGameUtility = <TScores extends Record<string, any>, TBonuses extends Record<string, any>>(
   config: GameUtility<TScores, TBonuses>
 ) => config;
+
+export const roundRobinTurnAlgorithm: ModuleTurn['algorithm'] = (players: GameScore<any, any>[], currentTurn: string) => {
+  const currentIndex = players.findIndex((p) => p.playerId === currentTurn);
+  const nextIndex = (currentIndex + 1) % players.length;
+  return players[nextIndex].playerId;
+}

@@ -40,7 +40,6 @@ export interface APIResponse<T> {
 export interface GameScore<TScores extends Record<string, any> = {}, TBonuses extends Record<string, any> = {}> {
   playerId: string;
   playerName: string;
-  score: number;
   scores: TScores;
   bonuses: TBonuses;
 }
