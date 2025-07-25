@@ -1,66 +1,68 @@
-import type { GameScore } from '@/types/bgg';
-import { GameUtility, ScoreBreakdownItem } from '.';
+import { createGameUtility, ScoreBreakdownItem } from './utils';
 
 type OdinScores = {
-  cardsInHand: number;
-  roundsWon: number;
+  cardsThatRestInHand: number;
 };
 
 type OdinBonuses = {
-  roundsWon: number;
 };
 
-export const odinUtility: GameUtility<OdinScores, OdinBonuses> = {
+export default createGameUtility<OdinScores, OdinBonuses>({
   gameId: '406854',
   gameName: 'Odin (2024)',
   minPlayers: 2,
   maxPlayers: 4,
   winningCondition: 'lowest',
+
+  modules: [
+    {
+      type: 'quick-controls',
+      id: 'odin-quick-controls',
+      controls: [
+        { label: '+1', value: 1 },
+        { label: '+2', value: 2 },
+        { label: '+3', value: 3 },
+        { label: '+4', value: 4 },
+        { label: '+5', value: 5 },
+        { label: '+6', value: 6 },
+        { label: '+7', value: 7 },
+        { label: '+8', value: 8 },
+        { label: '+9', value: 9 },
+      ],
+    },
+    {
+      type: 'bonuses',
+      id: 'odin-bonuses',
+      bonuses: [
+      ],
+    },
+  ],
   
-  calculateFinalScore: (score: GameScore<OdinScores, OdinBonuses>): number => {
-    const cardsInHand = score.scores?.cardsInHand || 0;
-    const roundsWon = score.bonuses?.roundsWon || 0;
-    return cardsInHand - (roundsWon * 2); // -2 points per round won
+  calculateFinalScore: ({ scores, bonuses }): number => {
+    const cardsThatRestInHand = scores?.cardsThatRestInHand || 0;
+    return cardsThatRestInHand;
   },
   
-  scoreTypes: {
-    cardsInHand: {
-      label: 'Cards in Hand',
+  scores: {
+    cardsThatRestInHand: {
+      label: 'Cards that rest in hand',
       type: 'number',
       min: 0,
-      step: 1
+      step: 1,
+      calculate: ({ scores }) => scores?.cardsThatRestInHand || 0,
+      defaultValue: 0
     },
-    roundsWon: {
-      label: 'Rounds Won',
-      type: 'number',
-      min: 0,
-      step: 1
-    }
   },
   
   bonuses: {
-    roundBonus: {
-      label: 'Round Bonus',
-      description: '-2 points per round won',
-      type: 'bonus',
-      calculate: (score: GameScore<OdinScores, OdinBonuses>) => -((score.bonuses?.roundsWon || 0) * 2)
-    }
+    
   },
   
-  getScoreBreakdown: (score: GameScore<OdinScores, OdinBonuses>): ScoreBreakdownItem[] => {
-    const cardsInHand = score.scores?.cardsInHand || 0;
-    const roundsWon = score.bonuses?.roundsWon || 0;
-    const roundBonus = -roundsWon * 2;
-    const total = cardsInHand + roundBonus;
+  getScoreBreakdown: ({ scores, bonuses }): ScoreBreakdownItem[] => {
+    const cardsThatRestInHand = scores?.cardsThatRestInHand || 0;
+    const total = cardsThatRestInHand;
     
     return [
-      { label: 'Cards in Hand', value: cardsInHand, type: 'base' },
-      { 
-        label: 'Round Bonus', 
-        value: roundBonus, 
-        type: 'bonus',
-        description: `${roundsWon} rounds won × -2 points`
-      },
       { 
         label: 'Total Score', 
         value: total, 
@@ -75,4 +77,4 @@ export const odinUtility: GameUtility<OdinScores, OdinBonuses> = {
     allowNegativeScores: true,
     customComponents: ['OdinRoundTracker']
   }
-};
+});

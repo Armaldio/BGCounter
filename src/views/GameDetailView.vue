@@ -3,16 +3,10 @@ import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { bggApi } from '@/services/bgg-api';
 import type { BGGGame } from '@/types/bgg';
-import { hasGameUtility } from '@/game-utilities';
-import { defineAsyncComponent } from 'vue';
+import { hasGameUtility, getGameUtility } from '@/game-utilities';
 import LoadingSpinner from '@/components/LoadingSpinner.vue';
 import ErrorMessage from '@/components/ErrorMessage.vue';
 import ScoreTracker from '@/components/ScoreTracker.vue';
-
-// Async components for better performance
-const OdinTracker = defineAsyncComponent(
-  () => import('@/components/games/OdinTracker.vue')
-);
 
 const route = useRoute();
 const router = useRouter();
@@ -59,8 +53,7 @@ const complexityText = computed(() => {
   return 'Very Heavy';
 });
 
-const hasScoreTracker = computed(() => hasGameUtility(game.value?.id, 'score-tracker'));
-const hasOdinTracker = computed(() => game.value?.id === '406854');
+const hasScoreTracker = computed(() => hasGameUtility(gameId.value));
 
 const loadGame = async () => {
   isLoading.value = true;

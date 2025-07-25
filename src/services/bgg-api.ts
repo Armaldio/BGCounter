@@ -3,10 +3,12 @@ import type { BGGGame, BGGSearchResult } from '@/types/bgg';
 const BGG_BASE_URL = 'https://boardgamegeek.com/xmlapi2';
 const CORS_PROXY = 'https://api.allorigins.win/get?url=';
 
+const useCORSProxy = true;
+
 class BGGApiService {
   private async fetchXML(url: string): Promise<Document> {
     try {
-      const response = await fetch(`${CORS_PROXY}${encodeURIComponent(url)}`);
+      const response = await fetch(`${useCORSProxy ? CORS_PROXY : ''}${encodeURIComponent(url)}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
