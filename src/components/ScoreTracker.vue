@@ -45,9 +45,65 @@ onMounted(() => {
   loadGame();
 });
 
+// Game state
 const players = ref<GameScore[]>([]);
 const newPlayerName = ref("");
 const showAddPlayer = ref(false);
+
+// Game history
+const gameHistory = ref<{players: GameScore[], turnId?: string}[]>([]);
+const historyIndex = ref(-1);
+const MAX_HISTORY = 50; // Limit history to prevent memory issues
+
+// Save current game state to history
+const saveToHistory = () => {
+  // Don't save if no players yet
+  if (players.value.length === 0) return;
+  
+  // If we're not at the end of history, remove future states
+  if (historyIndex.value < gameHistory.value.length - 1) {
+    gameHistory.value = gameHistory.value.slice(0, historyIndex.value + 1);
+  }
+  
+  // Save current state
+  const state = {
+    players: JSON.parse(JSON.stringify(players.value)),
+    turnId: turnId.value
+  };
+  
+  gameHistory.value.push(state);
+  
+  // Enforce history limit
+  if (gameHistory.value.length > MAX_HISTORY) {
+    gameHistory.value.shift();
+  } else {
+    historyIndex.value = gameHistory.value.length - 1;
+  }
+};
+
+// Undo last action
+const undo = () => {
+  if (historyIndex.value <= 0) return; // No history or already at first state
+  
+  historyIndex.value--;
+  const previousState = gameHistory.value[historyIndex.value];
+  players.value = JSON.parse(JSON.stringify(previousState.players));
+  if (previousState.turnId) {
+    turnId.value = previousState.turnId;
+  }
+};
+
+// Redo last undone action
+const redo = () => {
+  if (historyIndex.value >= gameHistory.value.length - 1) return; // No future states
+  
+  historyIndex.value++;
+  const nextState = gameHistory.value[historyIndex.value];
+  players.value = JSON.parse(JSON.stringify(nextState.players));
+  if (nextState.turnId) {
+    turnId.value = nextState.turnId;
+  }
+};
 const turnId = ref();
 const currentTurn = computed(() => players.value.find(p => p.playerId === turnId.value));
 const gameUtility = computed(() => getGameUtility(gameId.value));
@@ -59,6 +115,7 @@ const selectPlayerAsFirst = (player: GameScore) => {
 // go to the next player using utility turn algorithm
 const endTurn = (player: GameScore) => {
   if (!gameUtility.value) return;
+  saveToHistory();
   turnId.value = gameUtility.value.modules.find(m => m.type === 'turn')?.algorithm(players.value, player.playerId);
 };
 
@@ -137,72 +194,59 @@ const createNewPlayer = (name: string): GameScore => {
 
 const addPlayer = () => {
   if (!newPlayerName.value.trim()) return;
-
-  const newPlayer = createNewPlayer(newPlayerName.value);
+  
+  saveToHistory();
+  const newPlayer = createNewPlayer(newPlayerName.value.trim());
   players.value.push(newPlayer);
   newPlayerName.value = "";
   showAddPlayer.value = false;
-  saveGameState();
+  
+  // If it's the first player, set them as current turn
+  if (players.value.length === 1) {
+    turnId.value = newPlayer.playerId;
+  }
 };
 
 const removePlayer = (playerId: string) => {
+  saveToHistory();
   players.value = players.value.filter((p) => p.playerId !== playerId);
-  saveGameState();
 };
 
 const updateScore = (playerId: string, scoreType: keyof GameScore['scores'], value: any) => {
-  const player = players.value.find((p) => p.playerId === playerId);
-  if (player) {
-    // Handle different score types
-    const scoreDef = gameUtility.value?.scores?.[scoreType];
-
-    if (scoreDef) {
-      // Convert value based on type
-      let convertedValue: any = value;
-      if (scoreDef.type === "number") {
-        convertedValue = Number(value);
-        if (scoreDef.min !== undefined)
-          convertedValue = Math.max(convertedValue, scoreDef.min);
-        if (scoreDef.max !== undefined)
-          convertedValue = Math.min(convertedValue, scoreDef.max);
-      } else if (scoreDef.type === "boolean") {
-        convertedValue = Boolean(value);
-      }
-
-      player.scores[scoreType] = convertedValue;
-      updatePlayerTotal(player);
-      saveGameState();
-    }
+  saveToHistory();
+  const player = players.value.find(p => p.playerId === playerId);
+  if (!player) return;
+  
+  // Convert value to number if it's a string that can be converted
+  let newValue = value;
+  if (typeof value === 'string' && !isNaN(Number(value))) {
+    newValue = Number(value);
   }
+  
+  player.scores[scoreType] = newValue;
+  updatePlayerTotal(player);
 };
 
 // Adjust a player's score by a given amount
 const adjustScore = (playerId: string, amount: number) => {
-  const player = players.value.find((p) => p.playerId === playerId);
-  if (player) {
-    // If the game has specific score types, use the first one
-    const scoreType = gameUtility.value?.scores
-      ? Object.keys(gameUtility.value.scores)[0]
-      : "points";
-
-    // Initialize the score if it doesn't exist
-    if (player.scores[scoreType] === undefined) {
-      player.scores[scoreType] = 0;
+  saveToHistory();
+  const player = players.value.find(p => p.playerId === playerId);
+  if (!player) return;
+  
+  // Find the first score type that's a number to adjust
+  const scoreType = Object.keys(player.scores).find(key => 
+    typeof player.scores[key as keyof typeof player.scores] === 'number'
+  ) as keyof GameScore['scores'] | undefined;
+  
+  if (scoreType !== undefined) {
+    const currentValue = Number(player.scores[scoreType]) || 0;
+    const newValue = currentValue + amount;
+    
+    // Only update if the new value is valid
+    if (!isNaN(newValue)) {
+      player.scores[scoreType] = newValue;
+      updatePlayerTotal(player);
     }
-
-    // Apply the adjustment
-    const newScore = Number(player.scores[scoreType] || 0) + amount;
-
-    // Ensure the score doesn't go below zero unless the game allows negative scores
-    if (newScore < 0 && !gameUtility.value?.ui?.allowNegativeScores) {
-      player.scores[scoreType] = 0;
-    } else {
-      player.scores[scoreType] = newScore;
-    }
-
-    // Update the total and save
-    updatePlayerTotal(player);
-    saveGameState();
   }
 };
 
@@ -211,23 +255,17 @@ const adjustBonus = (
   bonusType: keyof GameScore['bonuses'],
   adjustment: number
 ) => {
-  const player = players.value.find((p) => p.playerId === playerId);
-  if (player) {
-    // Initialize bonus if it doesn't exist
-    if (!player.bonuses[bonusType]) {
-      player.bonuses[bonusType] = 0;
-    }
-
-    // Apply adjustment
-    player.bonuses[bonusType] = (player.bonuses[bonusType] || 0) + adjustment;
-
-    // Ensure bonus doesn't go below 0
-    if (player.bonuses[bonusType] < 0) {
-      player.bonuses[bonusType] = 0;
-    }
-
+  saveToHistory();
+  const player = players.value.find(p => p.playerId === playerId);
+  if (!player) return;
+  
+  const currentValue = Number(player.bonuses[bonusType]) || 0;
+  const newValue = currentValue + adjustment;
+  
+  // Only update if the new value is valid and non-negative
+  if (!isNaN(newValue) && newValue >= 0) {
+    player.bonuses[bonusType] = newValue;
     updatePlayerTotal(player);
-    saveGameState();
   }
 };
 
@@ -291,10 +329,41 @@ const getScoreBreakdown = (player: GameScore) => {
 };
 
 const resetScores = () => {
-  players.value.forEach((player) => {
-    player.scores = {};
-    player.bonuses = {};
+  if (!confirm('Are you sure you want to reset all scores? This will clear all scores and game history but keep the players.')) {
+    return;
+  }
+  
+  // Save current player names and IDs to preserve them
+  const playerNames = players.value.map(p => p.playerName);
+  const playerIds = players.value.map(p => p.playerId);
+  
+  // Clear players array
+  players.value = [];
+  
+  // Recreate players with same names and IDs but reset scores
+  playerNames.forEach((name, index) => {
+    const newPlayer = createNewPlayer(name);
+    // Keep the original player ID
+    newPlayer.playerId = playerIds[index];
+    players.value.push(newPlayer);
   });
+  
+  // Reset turn to first player if there are players
+  if (players.value.length > 0) {
+    turnId.value = players.value[0].playerId;
+  } else {
+    turnId.value = undefined;
+  }
+  
+  // Clear local storage for this game to ensure a fresh start
+  localStorage.removeItem(`game-${gameId.value}-scores`);
+  
+  // Clear history
+  gameHistory.value = [];
+  historyIndex.value = -1;
+  
+  // Save the new reset state
+  saveGameState();
 };
 
 const sortedPlayers = computed(() => {
@@ -371,13 +440,27 @@ $: {
             <button @click="showAddPlayer = true" class="btn-primary text-sm">
               Add Player
             </button>
-            <button
-              v-if="players.length > 0"
-              @click="resetScores"
-              class="btn-secondary text-sm"
-            >
-              Reset All
+            <button @click="resetScores" class="btn-secondary text-sm">
+              Reset Scores
             </button>
+            <div class="flex border border-gray-300 rounded-md overflow-hidden">
+              <button 
+                @click="undo" 
+                :disabled="historyIndex <= 0"
+                class="px-3 py-1 text-sm bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed border-r border-gray-300"
+                title="Undo (Ctrl+Z)"
+              >
+                Undo
+              </button>
+              <button 
+                @click="redo" 
+                :disabled="historyIndex >= gameHistory.length - 1"
+                class="px-3 py-1 text-sm bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Redo (Ctrl+Shift+Z)"
+              >
+                Redo
+              </button>
+            </div>
           </div>
         </div>
 

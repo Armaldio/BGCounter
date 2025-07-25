@@ -1,7 +1,8 @@
 import type { BGGGame, BGGSearchResult } from '@/types/bgg';
 
 const BGG_BASE_URL = 'https://boardgamegeek.com/xmlapi2';
-const CORS_PROXY = 'https://api.allorigins.win/get?url=';
+const CORS_PROXY = 'https://corsproxy.io/?';
+// const CORS_PROXY = 'https://api.allorigins.win/get?url=';
 
 const useCORSProxy = true;
 
@@ -12,9 +13,9 @@ class BGGApiService {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      const data = await response.json();
+      const data = await response.text();
       const parser = new DOMParser();
-      return parser.parseFromString(data.contents, 'text/xml');
+      return parser.parseFromString(data, 'text/xml');
     } catch (error) {
       console.error('BGG API Error:', error);
       throw new Error('Failed to fetch data from BoardGameGeek');
